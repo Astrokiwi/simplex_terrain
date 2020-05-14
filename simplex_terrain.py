@@ -5,7 +5,7 @@ import math
 import subprocess
 import sys
 
-
+# these are global variables, suck it
 n_octaves_max = 256
 seeds = range(n_octaves_max)
 persistence = .7
@@ -29,7 +29,16 @@ vmax=.19
 vrange = (vmax-vmin)
 
 def sum_octave_2dgrid_fromfile(xcoords,ycoords,nlevels=n_octaves_max):
-    # adapted from https://cmaher.github.io/posts/working-with-simplex-noise/
+    """ sum_octave_2dgrid_fromfile
+    
+    Sums layers of opensimplex noise to make a height map with some power spectrum
+    
+    adapted from https://cmaher.github.io/posts/working-with-simplex-noise/
+    Python opensimplex library is super slow though, so I found some c++ version instead
+    Interfacing C++ with Python is weirdly complex compared to e.g. interacing Fortran with C++
+    So we just compile the C++ into an executible and dump the data to disk and load it like a shmuck
+    Turns out the main bottleneck is the matplotlib plotting anyway, so whatevs
+    """
     maxAmp = 0
     amp = 1
     freq = 1
@@ -58,17 +67,17 @@ def sum_octave_2dgrid_fromfile(xcoords,ycoords,nlevels=n_octaves_max):
     noise /= maxAmp
     return noise 
 
-
-for iplot,zoom in enumerate(2**np.arange(32)):
-    print("zoom:",iplot,zoom)
-    coords = np.linspace(.5-.5/zoom,.5+.5/zoom,res)
-    xcoords = coords-0.8445e-5
-    ycoords = coords+3.56413e-5
-    maxlevel = int(math.log2(res*zoom))
-    if maxlevel>n_octaves_max:
-        maxlevel=n_octaves_max
-    noise = sum_octave_2dgrid_fromfile(xcoords,ycoords,maxlevel)
-    plt.imshow(noise,cmap=cmap_terrain_steps,vmin=vmin,vmax=vmax,extent=[xcoords[0],xcoords[-1],ycoords[0],ycoords[-1]],origin='lower')
-    plt.colorbar()
-    plt.savefig(f"noise{iplot}.png")
-    plt.close('all')
+if __name__ == "__main__":
+    for iplot,zoom in enumerate(2**np.arange(32)):
+        print("zoom:",iplot,zoom)
+        coords = np.linspace(.5-.5/zoom,.5+.5/zoom,res)
+        xcoords = coords-0.8445e-5
+        ycoords = coords+3.56413e-5
+        maxlevel = int(math.log2(res*zoom))
+        if maxlevel>n_octaves_max:
+            maxlevel=n_octaves_max
+        noise = sum_octave_2dgrid_fromfile(xcoords,ycoords,maxlevel)
+        plt.imshow(noise,cmap=cmap_terrain_steps,vmin=vmin,vmax=vmax,extent=[xcoords[0],xcoords[-1],ycoords[0],ycoords[-1]],origin='lower')
+        plt.colorbar()
+        plt.savefig(f"noise{iplot}.png")
+        plt.close('all')
