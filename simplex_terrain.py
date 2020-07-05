@@ -4,6 +4,7 @@ from matplotlib import colors
 import math
 import subprocess
 import sys
+import OpenSimplexNoise
 
 class simplex_terrain_generator:
     def __init__(self,nmax=256,seeds=None):
@@ -20,16 +21,14 @@ class simplex_terrain_generator:
                 except:
                     raise ValueError("seeds must be integer or list")
 
-    def sum_octave_2dgrid_fromfile(self,xcoords=None,ycoords=None,nlevels=None,bounds=None,res=None,persistence=.7):
-        """ sum_octave_2dgrid_fromfile
+    def sum_octave_2dgrid(self,xcoords=None,ycoords=None,nlevels=None,bounds=None,res=None,persistence=.7):
+        """ sum_octave_2dgrid
     
         Sums layers of opensimplex noise to make a height map with some power spectrum
     
         adapted from https://cmaher.github.io/posts/working-with-simplex-noise/
         Python opensimplex library is super slow though, so I found some c++ version instead
-        Interfacing C++ with Python is weirdly complex compared to e.g. interacing Fortran with C++
-        So we just compile the C++ into an executible and dump the data to disk and load it like a shmuck
-        Turns out the main bottleneck is the matplotlib plotting anyway, so whatevs
+        and hacked it into a Cython library
         """
         maxAmp = 0
 #         amp = 1
@@ -80,9 +79,8 @@ class simplex_terrain_generator:
         #add successively smaller, higher-frequency terms
         for i in range(nlevels):
             amp = persistence_function(i)
-            subprocess.run(["./simplex_vector"]+[str(x) for x in [self.seeds[i],nx,ny,x_min*freq,x_max*freq,y_min*freq,y_max*freq]])
-            indata = np.fromfile("noisemap.bin", dtype=np.double).reshape(ny,nx).T*amp
-            noise += indata
+            indata = OpenSimplexNoise.simplex_noise(self.seeds[i],x_min*freq,x_max*freq,nx,y_min*freq,y_max*freq,ny)
+            noise += indata*amp
             maxAmp += amp
 #             amp *= persistence
             freq *= 2
@@ -124,7 +122,7 @@ if __name__ == "__main__":
         maxlevel = int(math.log2(res*zoom))
         if maxlevel>n_octaves_max:
             maxlevel=n_octaves_max
-        noise = ter_gen.sum_octave_2dgrid_fromfile(xcoords,ycoords,maxlevel)
+        noise = ter_gen.sum_octave_2dgrid(xcoords,ycoords,maxlevel)
         plt.imshow(noise,cmap=cmap_terrain_steps,vmin=vmin,vmax=vmax,extent=[xcoords[0],xcoords[-1],ycoords[0],ycoords[-1]],origin='lower')
         plt.colorbar()
         plt.savefig(f"noise{iplot:03d}.png")

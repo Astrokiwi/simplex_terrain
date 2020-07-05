@@ -81,7 +81,7 @@ class MapCanvas(tkinter.Canvas):
         self.draw_world_map()
     
     def generate_height_map(self):
-        world_map = self.ter_gen.sum_octave_2dgrid_fromfile(bounds=[
+        world_map = self.ter_gen.sum_octave_2dgrid(bounds=[
                                                 [self.corner[0],self.corner[0]+self.pixel_res*self.width],
                                                 [self.corner[1],self.corner[1]+self.pixel_res*self.height]
                                                                 ]
