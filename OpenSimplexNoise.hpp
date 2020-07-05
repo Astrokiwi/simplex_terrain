@@ -4,7 +4,8 @@
   Ported from https://gist.github.com/digitalshadow/134a3a02b67cecd72181
   Originally from https://gist.github.com/KdotJPG/b1270127455a94ac5d19
   Optimised by DigitalShadow
-  This version by Mark A. Ropper (Markyparky56)
+  This version originally by Mark A. Ropper (Markyparky56)
+  Stripped down to 2D by David Williamson
 *******************************************************************************/
 #include <array>
 #include <vector>
