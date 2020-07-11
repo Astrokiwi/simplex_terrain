@@ -7,41 +7,28 @@ from matplotlib import colors
 import math
 
 
-sea_level = .6
-mountain_level = 3./8.*sea_level+5./8.
-max_farmable = (sea_level+mountain_level)/2
-snow_level = 1./8.*sea_level+7./8.
-
-cmap_terrain_steps = colors.LinearSegmentedColormap.from_list('terrain_steps',
-        [(0,'#000080'),
-#         (sea_level/2,'#0000FF'),
-        (sea_level*.9,'#0000FF'),
-        (sea_level,'#1E90FF'),
-        (sea_level+1.e-13,'#228B22'),
-        (mountain_level,'yellow'),
-        (snow_level,'#8B4513'),
-        (1.,'white')
-        ])
-
-cmap_habitable = colors.LinearSegmentedColormap.from_list('habitable',
-        [(0,'#0000FF'),
-        (sea_level*.9999,'#0000FF'),
-        (sea_level,'#00FF00'),
-        ((mountain_level-sea_level)*.1+sea_level,'#00FF00'),
-        ((mountain_level-sea_level)*.8+sea_level,'white'),
-        (1.,'white')
-        ])
-
 
 # world_map_normed = (world_map-np.min(world_map))/(np.max(world_map)-np.min(world_map))
 
 # a subclass of Canvas for dealing with resizing of windows
 # From https://stackoverflow.com/questions/22835289/how-to-get-tkinter-canvas-to-dynamically-resize-to-window-width
-class MapCanvas(tkinter.Canvas):
+class _MapCanvas(tkinter.Canvas):
     """MapCanvas
 
-    All of the meat of the code is currently in here. It handles both rendering and I/O
+    All of the meat of the code is currently in here. It handles both rendering and I/O.
+    
+    
     """
+
+
+    sea_level = .6
+    mountain_level = 3./8.*sea_level+5./8.
+    max_farmable = (sea_level+mountain_level)/2
+    snow_level = 1./8.*sea_level+7./8.
+
+
+
+
     def __init__(self,parent,**kwargs):
         tkinter.Canvas.__init__(self,parent,**kwargs)
         self.bind("<Configure>", self._on_resize)
@@ -71,10 +58,33 @@ class MapCanvas(tkinter.Canvas):
         
 #         self.zoom_sensitivity = 0.01
 
-        self.ter_gen = simplex_terrain.simplex_terrain_generator(seeds=0)
+        self.ter_gen = simplex_terrain.SimplexTerrainGenerator()
+        
+        self._reinitialize_colourmaps()
+
+    def _reinitialize_colourmaps(self):
+        self.cmap_terrain_steps = colors.LinearSegmentedColormap.from_list('terrain_steps',
+                [(0,'#000080'),
+        #         (sea_level/2,'#0000FF'),
+                (self.sea_level*.9,'#0000FF'),
+                (self.sea_level,'#1E90FF'),
+                (self.sea_level+1.e-13,'#228B22'),
+                (self.mountain_level,'yellow'),
+                (self.snow_level,'#8B4513'),
+                (1.,'white')
+                ])
+
+        self.cmap_habitable = colors.LinearSegmentedColormap.from_list('habitable',
+                [(0,'#0000FF'),
+                (self.sea_level*.9999,'#0000FF'),
+                (self.sea_level,'#00FF00'),
+                ((self.mountain_level-self.sea_level)*.1+self.sea_level,'#00FF00'),
+                ((self.mountain_level-self.sea_level)*.8+self.sea_level,'white'),
+                (1.,'white')
+                ])
 
     def _space(self,event):
-        print("Next mode")
+#         print("Next mode")
         self.selected_draw_mode_index+=1
         if self.selected_draw_mode_index>=len(self.draw_modes):
             self.selected_draw_mode_index=0
@@ -92,15 +102,26 @@ class MapCanvas(tkinter.Canvas):
                                                         )
 #         print(world_map.shape)
         world_map = self.rescale_function(world_map) # rescale X-TREME
-        print(np.nanmin(world_map),np.nanmax(world_map))
+#         print(np.nanmin(world_map),np.nanmax(world_map))
         world_map=np.clip(world_map,self.map_min,self.map_max).T
         world_map-=self.map_min
         world_map*=self.map_norm
-        print(np.nanmin(world_map),np.nanmax(world_map))
+#         print(np.nanmin(world_map),np.nanmax(world_map))
         return world_map
+        
+    def render_world_map(world_map):
+        
+        draw_mode_str = self.draw_modes[self.selected_draw_mode_index]
+        if draw_mode_str=='height':
+            world_map_coloured = self.cmap_terrain_steps(world_map,bytes=True)
+        elif draw_mode_str=='habitable':
+            world_map_coloured = self.cmap_habitable(world_map,bytes=True)
+        
+        self.world_img =  ImageTk.PhotoImage(image=Image.fromarray(world_map_coloured))
+        self.create_image(0,0, anchor="nw", image=self.world_img)
     
-    def draw_world_map(self):
-        """draw_world_map
+    def update_world_map(self):
+        """update_world_map
     
         Generates the full map and renders the image on the canvas.
         Currently regenerates everythings every time.
@@ -108,15 +129,7 @@ class MapCanvas(tkinter.Canvas):
         TODO: cache things at current resolution so you can scroll around and resize more efficiently"""
 #         print(np.min(world_map),np.max(world_map))
         world_map = self.generate_height_map()
-        
-        draw_mode_str = self.draw_modes[self.selected_draw_mode_index]
-        if draw_mode_str=='height':
-            world_map_coloured = cmap_terrain_steps(world_map,bytes=True)
-        elif draw_mode_str=='habitable':
-            world_map_coloured = cmap_habitable(world_map,bytes=True)
-        
-        self.world_img =  ImageTk.PhotoImage(image=Image.fromarray(world_map_coloured))
-        self.create_image(0,0, anchor="nw", image=self.world_img)
+        self.render_world_map(world_map)
 
     def _on_resize(self,event):
         """on_size
@@ -124,7 +137,7 @@ class MapCanvas(tkinter.Canvas):
         Just updates the canvas size and redraws the map"""
         self.width = event.width
         self.height = event.height
-        self.draw_world_map()
+        self.update_world_map()
         # resize the canvas 
 #         self.config(width=self.width, height=self.height)
         # rescale all the objects tagged with the "all" tag
@@ -133,7 +146,7 @@ class MapCanvas(tkinter.Canvas):
     def recenter(self,new_center):
         self.corner[0] = new_center[0]-self.pixel_res*self.width*.5
         self.corner[1] = new_center[1]-self.pixel_res*self.height*.5
-        self.draw_world_map()
+        self.update_world_map()
 
     def rezoom(self,zoom,x,y):
         """recentres the map and changes zoom"""
@@ -165,17 +178,18 @@ class MapCanvas(tkinter.Canvas):
 #         self.rezoom(2**(event.delta*self.zoom_sensitivity),event.x,event.y)
 
 
-root = tkinter.Tk()
-canvas = MapCanvas(root, width=1024, height=768)
-root.bind("<space>",canvas._space)
-canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
-canvas.draw_world_map()
-root.mainloop()
+def run():
+    """Runs simple tkinter-based GUI to demonstrate simplex_terrain"""
 
+    root = tkinter.Tk()
+    canvas = _MapCanvas(root, width=1024, height=768)
+    root.bind("<space>",canvas._space)
+    canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
+    canvas.update_world_map()
+    root.mainloop()
 
-
-
-
+if __name__ == "__main__":
+    run()
 
 
 

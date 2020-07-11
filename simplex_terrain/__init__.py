@@ -1,0 +1,1 @@
+from .simplex_terrain import SimplexTerrainGenerator #just to avoid another . when calling
